@@ -6,6 +6,8 @@ import EditTicketForm from './EditTicketForm';
 import { connect } from 'react-redux';
 import PropTypes from "prop-types";
 import * as a from './../actions';
+import { withFirestore } from 'react-redux-firebase'
+
 
 class TicketControl extends React.Component {
 
@@ -20,11 +22,11 @@ class TicketControl extends React.Component {
   componentDidMount() {
     this.waitTimeUpdateTimer = setInterval(() =>
       this.updateTicketElapsedWaitTime(),
-    60000
+      60000
     );
   }
 
-  componentWillUnmount(){
+  componentWillUnmount() {
     clearInterval(this.waitTimeUpdateTimer);
   }
 
@@ -52,25 +54,29 @@ class TicketControl extends React.Component {
 
   handleAddingNewTicketToList = (newTicket) => {
     const { dispatch } = this.props;
-    const action = a.addTicket(newTicket)
+    const action = a.toggleForm()
     dispatch(action);
     const action2 = a.toggleForm();
     dispatch(action2);
   }
 
   handleChangingSelectedTicket = (id) => {
-    const selectedTicket = this.props.mainTicketList[id];
-    this.setState({selectedTicket: selectedTicket});
+    this.props.firestore.get({ collection: 'tickets', doc: id }).then((ticket) => {
+      const firestoreTicket = {
+        names: ticket.get("names"),
+        location: ticket.get("location"),
+        issue: ticket.get("issue"),
+        id: ticket.id
+      }
+      this.setState({ selectedTicket: firestoreTicket });
+    });
   }
 
   handleEditClick = () => {
-    this.setState({editing: true});
+    this.setState({ editing: true });
   }
 
-  handleEditingTicketInList = (ticketToEdit) => {
-    const { dispatch } = this.props;
-    const action = a.addTicket(ticketToEdit);
-    dispatch(action);
+  handleEditingTicketInList = () => {
     this.setState({
       editing: false,
       selectedTicket: null
@@ -78,27 +84,25 @@ class TicketControl extends React.Component {
   }
 
   handleDeletingTicket = (id) => {
-    const { dispatch } = this.props;
-    const action = a.deleteTicket(id);
-    dispatch(action);
-    this.setState({selectedTicket: null});
+    this.props.firestore.delete({ collection: 'tickets', doc: id });
+    this.setState({ selectedTicket: null });
   }
 
-  render(){
+  render() {
     let currentlyVisibleState = null;
     let buttonText = null;
-    if (this.state.editing ) {      
-      currentlyVisibleState = <EditTicketForm ticket = {this.state.selectedTicket} onEditTicket = {this.handleEditingTicketInList} />
+    if (this.state.editing) {
+      currentlyVisibleState = <EditTicketForm ticket={this.state.selectedTicket} onEditTicket={this.handleEditingTicketInList} />
       buttonText = "Return to Ticket List";
     } else if (this.state.selectedTicket != null) {
-      currentlyVisibleState = 
-      <TicketDetail 
-        ticket = {this.state.selectedTicket} 
-        onClickingDelete = {this.handleDeletingTicket} 
-        onClickingEdit = {this.handleEditClick} />
+      currentlyVisibleState =
+        <TicketDetail
+          ticket={this.state.selectedTicket}
+          onClickingDelete={this.handleDeletingTicket}
+          onClickingEdit={this.handleEditClick} />
       buttonText = "Return to Ticket List";
     } else if (this.props.formVisibleOnPage) {
-      currentlyVisibleState = <NewTicketForm onNewTicketCreation={this.handleAddingNewTicketToList}  />;
+      currentlyVisibleState = <NewTicketForm onNewTicketCreation={this.handleAddingNewTicketToList} />;
       buttonText = "Return to Ticket List";
     } else {
       currentlyVisibleState = <TicketList ticketList={this.props.mainTicketList} onTicketSelection={this.handleChangingSelectedTicket} />;
@@ -128,3 +132,4 @@ const mapStateToProps = state => {
 TicketControl = connect(mapStateToProps)(TicketControl);
 
 export default TicketControl;
+export default withFirestore(TicketControl);
